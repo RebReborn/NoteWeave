@@ -11,6 +11,13 @@ import {
   Tag,
   ChevronDown,
   Check,
+  Bold,
+  Italic,
+  Code,
+  Link,
+  Quote,
+  Heading2,
+  List,
 } from "lucide-react";
 import { improveGrammar } from "@/ai/flows/improve-grammar";
 import { useToast } from "@/hooks/use-toast";
@@ -18,23 +25,56 @@ import type { Note } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
 import { parseMarkdown } from "@/lib/markdown";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Separator } from "@/components/ui/separator";
 
 type NoteEditorProps = {
   note: Note;
   updateNote: (id: string, updatedNote: Partial<Note>) => void;
   className?: string;
+};
+
+const EditorToolbar = ({ onInsert }: { onInsert: (syntax: string) => void }) => {
+  const tools = [
+    { icon: Bold, syntax: "****", tooltip: "Bold" },
+    { icon: Italic, syntax: "**", tooltip: "Italic" },
+    { icon: Code, syntax: "``", tooltip: "Code" },
+    { icon: Link, syntax: "[]()", tooltip: "Link" },
+    { icon: Quote, syntax: "> ", tooltip: "Blockquote" },
+    { icon: Heading2, syntax: "## ", tooltip: "Heading" },
+    { icon: List, syntax: "* ", tooltip: "List" },
+  ];
+
+  return (
+    <div className="border-b bg-card p-1 flex items-center gap-1 flex-wrap rounded-t-md">
+      {tools.map((tool, index) => (
+        <Tooltip key={index}>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => onInsert(tool.syntax)}
+              aria-label={tool.tooltip}
+            >
+              <tool.icon className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{tool.tooltip}</p>
+          </TooltipContent>
+        </Tooltip>
+      ))}
+    </div>
+  );
 };
 
 export function NoteEditor({ note, updateNote, className }: NoteEditorProps) {
@@ -44,6 +84,7 @@ export function NoteEditor({ note, updateNote, className }: NoteEditorProps) {
   const [isImproving, setIsImproving] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<"edit" | "preview">("edit");
   const { toast } = useToast();
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
   const previewContent = React.useMemo(() => parseMarkdown(content), [content]);
 
@@ -72,6 +113,38 @@ export function NoteEditor({ note, updateNote, className }: NoteEditorProps) {
 
     return () => clearTimeout(handler);
   }, [title, content, tags, note, updateNote]);
+
+  const handleInsert = (syntax: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = content.substring(start, end);
+
+    let insertion = "";
+    let cursorOffset = 0;
+
+    if (syntax === '****' || syntax === '**' || syntax === '``') {
+        const marker = syntax.substring(0, syntax.length / 2);
+        insertion = `${marker}${selectedText}${marker}`;
+        cursorOffset = start + marker.length + selectedText.length;
+    } else if (syntax === '[]()') {
+        insertion = `[${selectedText || ''}]()`;
+        cursorOffset = start + (selectedText ? selectedText.length : 0) + 3;
+    } else { // prefix
+        insertion = `${syntax}${selectedText}`;
+        cursorOffset = start + syntax.length + selectedText.length;
+    }
+
+    const newContent = content.substring(0, start) + insertion + content.substring(end);
+    setContent(newContent);
+
+    setTimeout(() => {
+        textarea.focus();
+        textarea.selectionStart = textarea.selectionEnd = cursorOffset;
+    }, 0);
+  };
 
   const handleImproveGrammar = async () => {
     setIsImproving(true);
@@ -210,13 +283,15 @@ export function NoteEditor({ note, updateNote, className }: NoteEditorProps) {
 
       <div className="flex-1 overflow-hidden">
         {activeTab === "edit" ? (
-          <Card className="h-full">
-            <CardContent className="p-0 h-full">
+          <Card className="h-full flex flex-col">
+            <EditorToolbar onInsert={handleInsert} />
+            <CardContent className="p-0 flex-1">
               <Textarea
+                ref={textareaRef}
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 placeholder="Start writing your note here..."
-                className="h-full w-full resize-none border-0 p-4 focus-visible:ring-0 min-h-[60vh]"
+                className="h-full w-full resize-none border-0 rounded-t-none p-4 focus-visible:ring-0 min-h-[50vh]"
               />
             </CardContent>
           </Card>
