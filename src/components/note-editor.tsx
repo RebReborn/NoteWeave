@@ -9,6 +9,8 @@ import {
   Printer,
   Sparkles,
   Tag,
+  ChevronDown,
+  Check,
 } from "lucide-react";
 import { improveGrammar } from "@/ai/flows/improve-grammar";
 import { useToast } from "@/hooks/use-toast";
@@ -16,7 +18,7 @@ import type { Note } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,17 +27,22 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { parseMarkdown } from "@/lib/markdown";
+import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Separator } from "@/components/ui/separator";
 
 type NoteEditorProps = {
   note: Note;
   updateNote: (id: string, updatedNote: Partial<Note>) => void;
+  className?: string;
 };
 
-export function NoteEditor({ note, updateNote }: NoteEditorProps) {
+export function NoteEditor({ note, updateNote, className }: NoteEditorProps) {
   const [title, setTitle] = React.useState(note.title);
   const [content, setContent] = React.useState(note.content);
   const [tags, setTags] = React.useState(note.tags.join(", "));
   const [isImproving, setIsImproving] = React.useState(false);
+  const [activeTab, setActiveTab] = React.useState<"edit" | "preview">("edit");
   const { toast } = useToast();
 
   const previewContent = React.useMemo(() => parseMarkdown(content), [content]);
@@ -108,78 +115,131 @@ export function NoteEditor({ note, updateNote }: NoteEditorProps) {
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-4">
-        <Input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Note Title"
-          className="font-headline text-2xl font-bold h-auto p-0 border-none focus-visible:ring-0 shadow-none"
-        />
+    <div className={cn("flex flex-col gap-4 h-full", className)}>
+      <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
-          <Button
-            onClick={handleImproveGrammar}
-            disabled={isImproving || !content}
-            variant="outline"
-            size="sm"
-          >
-            {isImproving ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Sparkles className="mr-2 h-4 w-4" />
-            )}
-            Improve
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Download className="mr-2 h-4 w-4" /> Export
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => handleExport("md")}>
-                <FileCode className="mr-2 h-4 w-4" /> Markdown (.md)
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport("txt")}>
-                <FileText className="mr-2 h-4 w-4" /> Plain Text (.txt)
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport("pdf")}>
-                <Printer className="mr-2 h-4 w-4" /> PDF
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Note Title"
+            className="font-headline text-2xl font-bold h-auto px-0 border-none focus-visible:ring-0 shadow-none flex-1"
+          />
+          <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={handleImproveGrammar}
+                  disabled={isImproving || !content}
+                  variant="ghost"
+                  size="sm"
+                  className="gap-2"
+                >
+                  {isImproving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  <span className="sr-only md:not-sr-only">Improve</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Improve grammar with AI</TooltipContent>
+            </Tooltip>
+            
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="gap-2">
+                      <Download className="h-4 w-4" />
+                      <span className="sr-only md:not-sr-only">Export</span>
+                      <ChevronDown className="h-3 w-3 opacity-50 hidden md:block" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent>Export options</TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleExport("md")}>
+                  <FileCode className="mr-2 h-4 w-4" />
+                  Markdown (.md)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport("txt")}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  Plain Text (.txt)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport("pdf")}>
+                  <Printer className="mr-2 h-4 w-4" />
+                  PDF
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
+        <div className="relative">
+          <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={tags}
+            onChange={(e) => setTags(e.target.value)}
+            placeholder="Add tags (comma separated)"
+            className="pl-9"
+          />
         </div>
       </div>
-      <div className="relative">
-        <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          value={tags}
-          onChange={(e) => setTags(e.target.value)}
-          placeholder="Add tags, comma separated..."
-          className="pl-9"
-        />
+
+      <div className="flex gap-2">
+        <Button
+          variant={activeTab === "edit" ? "secondary" : "ghost"}
+          size="sm"
+          onClick={() => setActiveTab("edit")}
+          className="gap-2"
+        >
+          {activeTab === "edit" && <Check className="h-4 w-4" />}
+          Edit
+        </Button>
+        <Button
+          variant={activeTab === "preview" ? "secondary" : "ghost"}
+          size="sm"
+          onClick={() => setActiveTab("preview")}
+          className="gap-2"
+        >
+          {activeTab === "preview" && <Check className="h-4 w-4" />}
+          Preview
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-h-[60vh]">
-        <Card>
-          <CardContent className="p-0">
-            <Textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Start weaving your thoughts..."
-              className="h-full w-full resize-none border-0 p-4 focus-visible:ring-0"
-            />
-          </CardContent>
-        </Card>
-        <Card className="overflow-hidden">
-          <CardContent className="p-4 h-full overflow-y-auto">
-            <div
-              className="prose prose-sm dark:prose-invert max-w-none"
-              dangerouslySetInnerHTML={{ __html: previewContent }}
-            />
-          </CardContent>
-        </Card>
+      <div className="flex-1 overflow-hidden">
+        {activeTab === "edit" ? (
+          <Card className="h-full">
+            <CardContent className="p-0 h-full">
+              <Textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="Start writing your note here..."
+                className="h-full w-full resize-none border-0 p-4 focus-visible:ring-0 min-h-[60vh]"
+              />
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="h-full overflow-hidden">
+            <CardContent className="p-4 h-full overflow-y-auto prose prose-sm dark:prose-invert max-w-none">
+              {content ? (
+                <div dangerouslySetInnerHTML={{ __html: previewContent }} />
+              ) : (
+                <div className="text-muted-foreground flex items-center justify-center h-full">
+                  Nothing to preview yet...
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
+
+      {note.updatedAt && (
+        <div className="text-xs text-muted-foreground text-right">
+          Last updated: {new Date(note.updatedAt).toLocaleString()}
+        </div>
+      )}
     </div>
   );
 }
