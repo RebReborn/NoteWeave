@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useAuth } from "@/hooks/use-auth";
@@ -97,19 +98,9 @@ export function UserNav({ className }: { className?: string }) {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         
-        <DropdownMenuItem onClick={() => router.push("/profile")}>
-          <User className="mr-2 h-4 w-4" />
-          <span>Profile</span>
-        </DropdownMenuItem>
-        
         <DropdownMenuItem onClick={() => router.push("/settings")}>
           <Settings className="mr-2 h-4 w-4" />
           <span>Settings</span>
-        </DropdownMenuItem>
-        
-        <DropdownMenuItem onClick={() => router.push("/help")}>
-          <HelpCircle className="mr-2 h-4 w-4" />
-          <span>Help</span>
         </DropdownMenuItem>
         
         <DropdownMenuSeparator />

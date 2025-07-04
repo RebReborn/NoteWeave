@@ -8,6 +8,9 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
+  GoogleAuthProvider,
+  signInWithPopup,
+  UserCredential,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { Loader2 } from "lucide-react";
@@ -22,6 +25,7 @@ type AuthContextType = {
     ...args: Parameters<typeof createUserWithEmailAndPassword>
   ) => ReturnType<typeof createUserWithEmailAndPassword>;
   signOut: () => ReturnType<typeof firebaseSignOut>;
+  signInWithGoogle: () => Promise<UserCredential>;
 };
 
 const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
@@ -44,6 +48,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signIn: (...args) => signInWithEmailAndPassword(auth, ...args),
     signUp: (...args) => createUserWithEmailAndPassword(auth, ...args),
     signOut: () => firebaseSignOut(auth),
+    signInWithGoogle: () => {
+      const provider = new GoogleAuthProvider();
+      provider.addScope("https://www.googleapis.com/auth/spreadsheets");
+      return signInWithPopup(auth, provider);
+    },
   };
 
   return (
