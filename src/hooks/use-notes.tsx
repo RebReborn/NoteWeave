@@ -1,78 +1,182 @@
 "use client";
 
 import * as React from "react";
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  query,
+  orderBy,
+  serverTimestamp,
+  Timestamp,
+  onSnapshot,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import type { Note } from "@/lib/types";
+import { useToast } from "@/hooks/use-toast";
 
-const initialNotes: Note[] = [
+const initialNotes: Omit<Note, "id" | "createdAt" | "updatedAt">[] = [
   {
     id: "1",
     title: "Welcome to NoteWeave!",
     content:
       "# Welcome to NoteWeave!\n\nThis is a sample note to help you get started. You can **edit** this note, create new ones, and organize your thoughts with tags.\n\n## Features\n* Markdown support\n* Live preview\n* Tagging system\n* AI-powered grammar check\n\nEnjoy weaving your thoughts!",
     tags: ["getting-started", "welcome"],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
   },
   {
     id: "2",
     title: "Meeting Notes",
     content: "## Project Alpha - Kick-off\n\n**Attendees:**\n- Alice\n- Bob\n- Charlie\n\n**Action items:**\n1. Finalize the project scope by Friday.\n2. Bob to create the initial repository.",
     tags: ["work", "project-alpha"],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
   },
-];
+].map(({id, ...rest}) => rest);
 
 
 export function useNotes() {
   const [notes, setNotes] = React.useState<Note[]>([]);
-  
+  const [loading, setLoading] = React.useState(true);
+  const { toast } = useToast();
+  const notesCollectionRef = React.useMemo(() => collection(db, "notes"), []);
+
   React.useEffect(() => {
-    try {
-      const storedNotes = localStorage.getItem("notes");
-      if (storedNotes) {
-        setNotes(JSON.parse(storedNotes));
-      } else {
-        setNotes(initialNotes);
+    if (
+      !process.env.NEXT_PUBLIC_FIREBASE_API_KEY ||
+      process.env.NEXT_PUBLIC_FIREBASE_API_KEY === "REPLACE_ME"
+    ) {
+      console.warn("Firebase config not found. Using local data.");
+      setNotes(
+        initialNotes.map((n, i) => ({
+          ...n,
+          id: i.toString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }))
+      );
+      setLoading(false);
+      return;
+    }
+    
+    setLoading(true);
+    const q = query(notesCollectionRef, orderBy("updatedAt", "desc"));
+
+    const unsubscribe = onSnapshot(
+      q,
+      async (querySnapshot) => {
+        if (querySnapshot.empty && !querySnapshot.metadata.fromCache) {
+          try {
+            for (const note of initialNotes) {
+              await addDoc(notesCollectionRef, {
+                ...note,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+              });
+            }
+          } catch (error) {
+            console.error("Error seeding initial notes: ", error);
+            toast({
+              variant: "destructive",
+              title: "Error",
+              description: "Failed to create initial notes.",
+            });
+          }
+        } else {
+          const notesData = querySnapshot.docs.map((docSnapshot) => {
+            const data = docSnapshot.data();
+            return {
+              id: docSnapshot.id,
+              title: data.title,
+              content: data.content,
+              tags: data.tags,
+              createdAt:
+                (data.createdAt as Timestamp)?.toDate().toISOString() ||
+                new Date().toISOString(),
+              updatedAt:
+                (data.updatedAt as Timestamp)?.toDate().toISOString() ||
+                new Date().toISOString(),
+            };
+          });
+          setNotes(notesData);
+        }
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Error getting notes: ", error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to load notes. Please check your Firebase setup in .env",
+        });
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Failed to load notes from localStorage", error);
-      setNotes(initialNotes);
-    }
-  }, []);
+    );
 
-  React.useEffect(() => {
-    try {
-      localStorage.setItem("notes", JSON.stringify(notes));
-    } catch (error) {
-       console.error("Failed to save notes to localStorage", error);
-    }
-  }, [notes]);
+    return () => unsubscribe();
+  }, [notesCollectionRef, toast]);
 
-  const addNote = () => {
-    const newNote: Note = {
-      id: Date.now().toString(),
+  const addNote = async () => {
+    const newNoteStub = {
       title: "Untitled Note",
       content: "",
       tags: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
     };
-    setNotes((prevNotes) => [newNote, ...prevNotes]);
-    return newNote;
+
+    try {
+      const docRef = await addDoc(notesCollectionRef, {
+        ...newNoteStub,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      return {
+        ...newNoteStub,
+        id: docRef.id,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    } catch (error) {
+      console.error("Error adding note: ", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to create a new note.",
+      });
+      throw error;
+    }
   };
 
-  const updateNote = (id: string, updatedNote: Partial<Note>) => {
-    setNotes((prevNotes) =>
-      prevNotes.map((note) =>
-        note.id === id ? { ...note, ...updatedNote } : note
-      )
-    );
+  const updateNote = async (id: string, updatedNote: Partial<Note>) => {
+    const noteDoc = doc(db, "notes", id);
+    const { id: noteId, createdAt, updatedAt, ...rest } = updatedNote;
+    try {
+      await updateDoc(noteDoc, {
+        ...rest,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error("Error updating note: ", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to save note changes.",
+      });
+    }
   };
 
-  const deleteNote = (id: string) => {
-    setNotes((prevNotes) => prevNotes.filter((note) => note.id !== id));
+  const deleteNote = async (id: string) => {
+    const noteDoc = doc(db, "notes", id);
+    try {
+      await deleteDoc(noteDoc);
+    } catch (error) {
+      console.error("Error deleting note: ", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete the note.",
+      });
+    }
   };
 
-  return { notes, addNote, updateNote, deleteNote };
+  return { notes, loading, addNote, updateNote, deleteNote };
 }
