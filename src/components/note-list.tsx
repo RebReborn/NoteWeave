@@ -30,30 +30,17 @@ export function NoteList({
   return (
     <ul className="space-y-1">
       {notes.map((note) => (
-        <li key={note.id}>
+        <li key={note.id} className="group relative">
           <button
             onClick={() => onSelectNote(note.id)}
             className={cn(
-              "group w-full text-left p-2 rounded-md hover:bg-sidebar-accent block",
+              "w-full text-left p-2 rounded-md hover:bg-sidebar-accent block",
               activeNoteId === note.id && "bg-sidebar-accent"
             )}
           >
-            <div className="flex justify-between items-center">
-              <h3 className="font-headline font-semibold truncate">
-                {note.title || "Untitled Note"}
-              </h3>
-               <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDeleteNote(note.id);
-                }}
-              >
-                <Trash2 className="h-4 w-4 text-muted-foreground" />
-              </Button>
-            </div>
+            <h3 className="font-headline font-semibold truncate pr-8">
+              {note.title || "Untitled Note"}
+            </h3>
 
             <p className="text-sm text-muted-foreground truncate">
               {note.content?.substring(0, 50) || "No content"}
@@ -68,6 +55,14 @@ export function NoteList({
               </div>
             )}
           </button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-1 right-1 h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100"
+            onClick={() => onDeleteNote(note.id)}
+          >
+            <Trash2 className="h-4 w-4 text-muted-foreground" />
+          </Button>
         </li>
       ))}
     </ul>
