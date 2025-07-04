@@ -18,7 +18,7 @@ import { redirect } from 'next/navigation';
 import { ToastAction } from '@/components/ui/toast';
 
 export default function SettingsPage() {
-  const { user, loading: authLoading, signInWithGoogle } = useAuth();
+  const { user, loading: authLoading, getGoogleCredentialForSheets } = useAuth();
   const { notes, loading: notesLoading } = useNotes(user);
   const [isExporting, setIsExporting] = React.useState(false);
   const { toast } = useToast();
@@ -32,7 +32,7 @@ export default function SettingsPage() {
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const credential = await signInWithGoogle();
+      const credential = await getGoogleCredentialForSheets();
       const oauthCredential = GoogleAuthProvider.credentialFromResult(credential);
       const accessToken = oauthCredential?.accessToken;
 

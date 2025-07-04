@@ -26,6 +26,7 @@ type AuthContextType = {
   ) => ReturnType<typeof createUserWithEmailAndPassword>;
   signOut: () => ReturnType<typeof firebaseSignOut>;
   signInWithGoogle: () => Promise<UserCredential>;
+  getGoogleCredentialForSheets: () => Promise<UserCredential>;
 };
 
 const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
@@ -49,6 +50,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signUp: (...args) => createUserWithEmailAndPassword(auth, ...args),
     signOut: () => firebaseSignOut(auth),
     signInWithGoogle: () => {
+      const provider = new GoogleAuthProvider();
+      return signInWithPopup(auth, provider);
+    },
+    getGoogleCredentialForSheets: () => {
       const provider = new GoogleAuthProvider();
       provider.addScope("https://www.googleapis.com/auth/spreadsheets");
       return signInWithPopup(auth, provider);
