@@ -42,6 +42,7 @@ import { parseMarkdown } from "@/lib/markdown";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useHotkeys } from "@/hooks/use-hotkeys";
+import TurndownService from "turndown";
 
 type NoteEditorProps = {
   note: Note;
@@ -149,6 +150,11 @@ export function NoteEditor({ note, updateNote, className }: NoteEditorProps) {
   const [historyIndex, setHistoryIndex] = React.useState(-1);
   const { toast } = useToast();
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const turndownServiceRef = React.useRef<TurndownService | null>(null);
+
+  React.useEffect(() => {
+    turndownServiceRef.current = new TurndownService();
+  }, []);
 
   const previewContent = React.useMemo(() => parseMarkdown(content), [content]);
 
@@ -308,6 +314,36 @@ export function NoteEditor({ note, updateNote, className }: NoteEditorProps) {
     URL.revokeObjectURL(url);
   };
 
+  const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    if (!turndownServiceRef.current) return;
+
+    const pastedHtml = event.clipboardData.getData("text/html");
+
+    if (pastedHtml) {
+      event.preventDefault();
+      const markdown = turndownServiceRef.current.turndown(pastedHtml);
+
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const beforeText = content.substring(0, start);
+      const afterText = content.substring(end);
+
+      const newContent = beforeText + markdown + afterText;
+      setContent(newContent);
+      saveToHistory(newContent);
+
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.selectionStart = textareaRef.current.selectionEnd =
+            start + markdown.length;
+        }
+      }, 0);
+    }
+  };
+
   return (
     <div className={cn("flex flex-col gap-4 h-full", className)}>
       <div className="flex flex-col gap-2">
@@ -420,6 +456,7 @@ export function NoteEditor({ note, updateNote, className }: NoteEditorProps) {
                   setContent(e.target.value);
                   saveToHistory(e.target.value);
                 }}
+                onPaste={handlePaste}
                 placeholder="Start writing your note here..."
                 className="h-full w-full resize-none border-0 rounded-t-none p-4 focus-visible:ring-0 min-h-[50vh] font-mono text-sm"
                 spellCheck="false"
