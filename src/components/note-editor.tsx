@@ -18,6 +18,12 @@ import {
   Quote,
   Heading2,
   List,
+  ListOrdered,
+  Image,
+  Table,
+  SeparatorHorizontal,
+  Undo,
+  Redo,
 } from "lucide-react";
 import { improveGrammar } from "@/ai/flows/improve-grammar";
 import { useToast } from "@/hooks/use-toast";
@@ -35,6 +41,7 @@ import {
 import { parseMarkdown } from "@/lib/markdown";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useHotkeys } from "@/hooks/use-hotkeys";
 
 type NoteEditorProps = {
   note: Note;
@@ -42,19 +49,73 @@ type NoteEditorProps = {
   className?: string;
 };
 
-const EditorToolbar = ({ onInsert }: { onInsert: (syntax: string) => void }) => {
+const EditorToolbar = ({ 
+  onInsert,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo
+}: { 
+  onInsert: (syntax: string, cursorOffset?: number) => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+}) => {
   const tools = [
-    { icon: Bold, syntax: "****", tooltip: "Bold" },
-    { icon: Italic, syntax: "**", tooltip: "Italic" },
-    { icon: Code, syntax: "``", tooltip: "Code" },
-    { icon: Link, syntax: "[]()", tooltip: "Link" },
-    { icon: Quote, syntax: "> ", tooltip: "Blockquote" },
-    { icon: Heading2, syntax: "## ", tooltip: "Heading" },
-    { icon: List, syntax: "* ", tooltip: "List" },
+    { icon: Bold, syntax: "**$1**", shortcut: "Ctrl+B", tooltip: "Bold" },
+    { icon: Italic, syntax: "*$1*", shortcut: "Ctrl+I", tooltip: "Italic" },
+    { icon: Code, syntax: "`$1`", shortcut: "Ctrl+`", tooltip: "Inline Code" },
+    { icon: Link, syntax: "[$1]($2)", shortcut: "Ctrl+K", tooltip: "Link" },
+    { icon: Image, syntax: "![$1]($2)", shortcut: "Ctrl+Shift+I", tooltip: "Image" },
+    { icon: Quote, syntax: "> $1", shortcut: "Ctrl+Shift+Q", tooltip: "Blockquote" },
+    { icon: Heading2, syntax: "## $1", shortcut: "Ctrl+Shift+H", tooltip: "Heading" },
+    { icon: List, syntax: "- $1", shortcut: "Ctrl+Shift+U", tooltip: "Bullet List" },
+    { icon: ListOrdered, syntax: "1. $1", shortcut: "Ctrl+Shift+O", tooltip: "Numbered List" },
+    { icon: Table, syntax: "| Header |\n|--------|\n| Cell   |", shortcut: "Ctrl+Shift+T", tooltip: "Table" },
+    { icon: SeparatorHorizontal, syntax: "---\n", shortcut: "Ctrl+Shift+S", tooltip: "Horizontal Rule" },
   ];
 
   return (
     <div className="border-b bg-card p-1 flex items-center gap-1 flex-wrap rounded-t-md">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={onUndo}
+            disabled={!canUndo}
+            aria-label="Undo"
+          >
+            <Undo className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Undo (Ctrl+Z)</p>
+        </TooltipContent>
+      </Tooltip>
+      
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={onRedo}
+            disabled={!canRedo}
+            aria-label="Redo"
+          >
+            <Redo className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Redo (Ctrl+Y)</p>
+        </TooltipContent>
+      </Tooltip>
+
+      <div className="h-6 w-px bg-border mx-1" />
+
       {tools.map((tool, index) => (
         <Tooltip key={index}>
           <TooltipTrigger asChild>
@@ -68,8 +129,9 @@ const EditorToolbar = ({ onInsert }: { onInsert: (syntax: string) => void }) => 
               <tool.icon className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>
+          <TooltipContent side="bottom">
             <p>{tool.tooltip}</p>
+            <p className="text-xs text-muted-foreground">{tool.shortcut}</p>
           </TooltipContent>
         </Tooltip>
       ))}
@@ -83,10 +145,47 @@ export function NoteEditor({ note, updateNote, className }: NoteEditorProps) {
   const [tags, setTags] = React.useState(note.tags.join(", "));
   const [isImproving, setIsImproving] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<"edit" | "preview">("edit");
+  const [history, setHistory] = React.useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = React.useState(-1);
   const { toast } = useToast();
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
   const previewContent = React.useMemo(() => parseMarkdown(content), [content]);
+
+  // Initialize history
+  React.useEffect(() => {
+    if (content) {
+      setHistory([content]);
+      setHistoryIndex(0);
+    }
+  }, []);
+
+  // Save to history when content changes
+  const saveToHistory = (newContent: string) => {
+    const newHistory = history.slice(0, historyIndex + 1);
+    newHistory.push(newContent);
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+  };
+
+  const canUndo = historyIndex > 0;
+  const canRedo = historyIndex < history.length - 1;
+
+  const handleUndo = () => {
+    if (canUndo) {
+      const prevContent = history[historyIndex - 1];
+      setContent(prevContent);
+      setHistoryIndex(historyIndex - 1);
+    }
+  };
+
+  const handleRedo = () => {
+    if (canRedo) {
+      const nextContent = history[historyIndex + 1];
+      setContent(nextContent);
+      setHistoryIndex(historyIndex + 1);
+    }
+  };
 
   React.useEffect(() => {
     setTitle(note.title);
@@ -121,36 +220,58 @@ export function NoteEditor({ note, updateNote, className }: NoteEditorProps) {
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
     const selectedText = content.substring(start, end);
+    const beforeText = content.substring(0, start);
+    const afterText = content.substring(end);
 
-    let insertion = "";
-    let cursorOffset = 0;
+    // Handle special syntax patterns
+    let newContent = "";
+    let newCursorPos = start;
 
-    if (syntax === '****' || syntax === '**' || syntax === '``') {
-        const marker = syntax.substring(0, syntax.length / 2);
-        insertion = `${marker}${selectedText}${marker}`;
-        cursorOffset = start + marker.length + selectedText.length;
-    } else if (syntax === '[]()') {
-        insertion = `[${selectedText || ''}]()`;
-        cursorOffset = start + (selectedText ? selectedText.length : 0) + 3;
-    } else { // prefix
-        insertion = `${syntax}${selectedText}`;
-        cursorOffset = start + syntax.length + selectedText.length;
+    if (syntax.includes("$1")) {
+      // Replace $1 with selected text
+      newContent = beforeText + syntax.replace(/\$1/g, selectedText) + afterText;
+      
+      // Set cursor position after first $1 if no selection
+      if (!selectedText) {
+        const firstMarker = syntax.indexOf("$1");
+        newCursorPos = start + firstMarker;
+      } else {
+        newCursorPos = start + syntax.replace(/\$1/g, selectedText).length;
+      }
+    } else {
+      // Simple insertion
+      newContent = beforeText + syntax + selectedText + afterText;
+      newCursorPos = start + syntax.length;
     }
 
-    const newContent = content.substring(0, start) + insertion + content.substring(end);
     setContent(newContent);
+    saveToHistory(newContent);
 
+    // Focus and position cursor
     setTimeout(() => {
+      if (textarea) {
         textarea.focus();
-        textarea.selectionStart = textarea.selectionEnd = cursorOffset;
+        textarea.selectionStart = textarea.selectionEnd = newCursorPos;
+      }
     }, 0);
   };
+
+  // Keyboard shortcuts
+  useHotkeys([
+    { keys: ["ctrl", "z"], callback: handleUndo },
+    { keys: ["ctrl", "y"], callback: handleRedo },
+    { keys: ["ctrl", "b"], callback: () => handleInsert("**$1**") },
+    { keys: ["ctrl", "i"], callback: () => handleInsert("*$1*") },
+    { keys: ["ctrl", "k"], callback: () => handleInsert("[$1]($2)") },
+  ]);
 
   const handleImproveGrammar = async () => {
     setIsImproving(true);
     try {
       const result = await improveGrammar({ text: content });
-      setContent(result.improvedText);
+      const improvedText = result.improvedText;
+      setContent(improvedText);
+      saveToHistory(improvedText);
       toast({
         title: "Content Improved",
         description: "Your note has been updated with AI suggestions.",
@@ -284,14 +405,24 @@ export function NoteEditor({ note, updateNote, className }: NoteEditorProps) {
       <div className="flex-1 overflow-hidden">
         {activeTab === "edit" ? (
           <Card className="h-full flex flex-col">
-            <EditorToolbar onInsert={handleInsert} />
+            <EditorToolbar 
+              onInsert={handleInsert} 
+              onUndo={handleUndo}
+              onRedo={handleRedo}
+              canUndo={canUndo}
+              canRedo={canRedo}
+            />
             <CardContent className="p-0 flex-1">
               <Textarea
                 ref={textareaRef}
                 value={content}
-                onChange={(e) => setContent(e.target.value)}
+                onChange={(e) => {
+                  setContent(e.target.value);
+                  saveToHistory(e.target.value);
+                }}
                 placeholder="Start writing your note here..."
-                className="h-full w-full resize-none border-0 rounded-t-none p-4 focus-visible:ring-0 min-h-[50vh]"
+                className="h-full w-full resize-none border-0 rounded-t-none p-4 focus-visible:ring-0 min-h-[50vh] font-mono text-sm"
+                spellCheck="false"
               />
             </CardContent>
           </Card>
