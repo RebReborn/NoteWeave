@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -12,52 +13,62 @@ import {
   serverTimestamp,
   Timestamp,
   onSnapshot,
+  CollectionReference,
+  DocumentData,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { Note } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
+import { User } from "firebase/auth";
 
 const initialNotes: Omit<Note, "id" | "createdAt" | "updatedAt">[] = [
   {
-    id: "1",
     title: "Welcome to NoteWeave!",
     content:
       "# Welcome to NoteWeave!\n\nThis is a sample note to help you get started. You can **edit** this note, create new ones, and organize your thoughts with tags.\n\n## Features\n* Markdown support\n* Live preview\n* Tagging system\n* AI-powered grammar check\n\nEnjoy weaving your thoughts!",
     tags: ["getting-started", "welcome"],
   },
   {
-    id: "2",
     title: "Meeting Notes",
-    content: "## Project Alpha - Kick-off\n\n**Attendees:**\n- Alice\n- Bob\n- Charlie\n\n**Action items:**\n1. Finalize the project scope by Friday.\n2. Bob to create the initial repository.",
+    content:
+      "## Project Alpha - Kick-off\n\n**Attendees:**\n- Alice\n- Bob\n- Charlie\n\n**Action items:**\n1. Finalize the project scope by Friday.\n2. Bob to create the initial repository.",
     tags: ["work", "project-alpha"],
   },
-].map(({id, ...rest}) => rest);
+];
 
+async function seedInitialNotes(
+  notesCollectionRef: CollectionReference<DocumentData>
+) {
+  try {
+    for (const note of initialNotes) {
+      await addDoc(notesCollectionRef, {
+        ...note,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    }
+  } catch (error) {
+    console.error("Error seeding initial notes: ", error);
+  }
+}
 
-export function useNotes() {
+export function useNotes(user: User | null) {
   const [notes, setNotes] = React.useState<Note[]>([]);
   const [loading, setLoading] = React.useState(true);
   const { toast } = useToast();
-  const notesCollectionRef = React.useMemo(() => collection(db, "notes"), []);
+
+  const notesCollectionRef = React.useMemo(() => {
+    if (!user) return null;
+    return collection(db, "users", user.uid, "notes");
+  }, [user]);
 
   React.useEffect(() => {
-    if (
-      !process.env.NEXT_PUBLIC_FIREBASE_API_KEY ||
-      process.env.NEXT_PUBLIC_FIREBASE_API_KEY === "REPLACE_ME"
-    ) {
-      console.warn("Firebase config not found. Using local data.");
-      setNotes(
-        initialNotes.map((n, i) => ({
-          ...n,
-          id: i.toString(),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }))
-      );
+    if (!user || !notesCollectionRef) {
+      setNotes([]);
       setLoading(false);
       return;
     }
-    
+
     setLoading(true);
     const q = query(notesCollectionRef, orderBy("updatedAt", "desc"));
 
@@ -65,22 +76,7 @@ export function useNotes() {
       q,
       async (querySnapshot) => {
         if (querySnapshot.empty && !querySnapshot.metadata.fromCache) {
-          try {
-            for (const note of initialNotes) {
-              await addDoc(notesCollectionRef, {
-                ...note,
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-              });
-            }
-          } catch (error) {
-            console.error("Error seeding initial notes: ", error);
-            toast({
-              variant: "destructive",
-              title: "Error",
-              description: "Failed to create initial notes.",
-            });
-          }
+          await seedInitialNotes(notesCollectionRef);
         } else {
           const notesData = querySnapshot.docs.map((docSnapshot) => {
             const data = docSnapshot.data();
@@ -106,16 +102,18 @@ export function useNotes() {
         toast({
           variant: "destructive",
           title: "Error",
-          description: "Failed to load notes. Please check your Firebase setup in .env",
+          description: "Failed to load notes. Please try again later.",
         });
         setLoading(false);
       }
     );
 
     return () => unsubscribe();
-  }, [notesCollectionRef, toast]);
+  }, [user, notesCollectionRef, toast]);
 
   const addNote = async () => {
+    if (!notesCollectionRef) throw new Error("User not authenticated");
+
     const newNoteStub = {
       title: "Untitled Note",
       content: "",
@@ -147,7 +145,8 @@ export function useNotes() {
   };
 
   const updateNote = async (id: string, updatedNote: Partial<Note>) => {
-    const noteDoc = doc(db, "notes", id);
+    if (!user) throw new Error("User not authenticated");
+    const noteDoc = doc(db, "users", user.uid, "notes", id);
     const { id: noteId, createdAt, updatedAt, ...rest } = updatedNote;
     try {
       await updateDoc(noteDoc, {
@@ -165,7 +164,8 @@ export function useNotes() {
   };
 
   const deleteNote = async (id: string) => {
-    const noteDoc = doc(db, "notes", id);
+    if (!user) throw new Error("User not authenticated");
+    const noteDoc = doc(db, "users", user.uid, "notes", id);
     try {
       await deleteDoc(noteDoc);
     } catch (error) {

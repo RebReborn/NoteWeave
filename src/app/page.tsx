@@ -1,8 +1,13 @@
+
 "use client";
 
 import * as React from "react";
 import { Plus, Loader2 } from "lucide-react";
+import { redirect } from "next/navigation";
+
 import { useNotes } from "@/hooks/use-notes";
+import { useAuth } from "@/hooks/use-auth";
+
 import {
   Sidebar,
   SidebarContent,
@@ -18,19 +23,35 @@ import { NoteList } from "@/components/note-list";
 import { NoteEditor } from "@/components/note-editor";
 import { NoNoteSelected } from "@/components/no-note-selected";
 import { Skeleton } from "@/components/ui/skeleton";
+import { UserNav } from "@/components/user-nav";
+
 
 export default function Home() {
-  const { notes, loading, addNote, updateNote, deleteNote } = useNotes();
+  const { user, loading: authLoading } = useAuth();
+  const {
+    notes,
+    loading: notesLoading,
+    addNote,
+    updateNote,
+    deleteNote,
+  } = useNotes(user);
+
   const [activeNoteId, setActiveNoteId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    if (!loading && notes.length > 0 && !notes.some((n) => n.id === activeNoteId)) {
+    if (!authLoading && !user) {
+      redirect("/login");
+    }
+  }, [user, authLoading]);
+
+  React.useEffect(() => {
+    if (!notesLoading && notes.length > 0 && !notes.some((n) => n.id === activeNoteId)) {
       setActiveNoteId(notes[0].id);
     }
-    if (!loading && notes.length === 0) {
+    if (!notesLoading && notes.length === 0) {
       setActiveNoteId(null);
     }
-  }, [notes, activeNoteId, loading]);
+  }, [notes, activeNoteId, notesLoading]);
 
   const activeNote = React.useMemo(
     () => notes.find((note) => note.id === activeNoteId),
@@ -38,6 +59,7 @@ export default function Home() {
   );
 
   const handleAddNote = async () => {
+    if (!user) return;
     try {
       const newNote = await addNote();
       setActiveNoteId(newNote.id);
@@ -49,6 +71,14 @@ export default function Home() {
   const handleDeleteNote = (id: string) => {
     deleteNote(id);
   };
+  
+  if (authLoading || !user) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="size-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <SidebarProvider>
@@ -67,7 +97,7 @@ export default function Home() {
               size="sm"
               className="w-full"
               onClick={handleAddNote}
-              disabled={loading}
+              disabled={notesLoading}
             >
               <Plus className="mr-2 size-4" />
               New Note
@@ -75,7 +105,7 @@ export default function Home() {
           </div>
         </SidebarHeader>
         <SidebarContent className="p-2 pt-0">
-          {loading ? (
+          {notesLoading ? (
             <div className="space-y-1">
               {[...Array(5)].map((_, i) => (
                 <Skeleton key={i} className="h-20 w-full" />
@@ -92,24 +122,25 @@ export default function Home() {
         </SidebarContent>
       </Sidebar>
       <SidebarInset className="max-h-svh overflow-y-auto">
-        <header className="sticky top-0 z-10 flex h-14 items-center justify-end gap-2 border-b bg-background/80 px-4 backdrop-blur-sm md:justify-end">
-          <div className="hidden md:block">
-            <ThemeToggle />
-          </div>
-          <div className="block md:hidden">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleAddNote}
-              disabled={loading}
-            >
-              <Plus />
-            </Button>
-          </div>
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-end gap-2 border-b bg-background/80 px-4 backdrop-blur-sm">
+           <div className="block md:hidden">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleAddNote}
+                disabled={notesLoading || authLoading}
+              >
+                <Plus />
+              </Button>
+           </div>
+           <div className="hidden md:block">
+              <ThemeToggle />
+           </div>
+           <UserNav />
         </header>
 
         <main className="flex-1 p-4 md:p-6">
-          {loading && !activeNote ? (
+          {notesLoading && !activeNote ? (
             <div className="flex h-full items-center justify-center">
               <Loader2 className="size-8 animate-spin text-primary" />
             </div>
