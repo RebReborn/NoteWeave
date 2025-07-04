@@ -1,6 +1,6 @@
 "use client";
 
-import { Trash2, Pin, Pinned } from "lucide-react";
+import { Trash2, Pin } from "lucide-react";
 import type { Note } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -78,7 +78,7 @@ export function NoteList({
                   {note.pinned && (
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Pinned className="h-4 w-4 flex-shrink-0 text-primary" />
+                        <Pin className="h-4 w-4 flex-shrink-0 text-primary fill-current" />
                       </TooltipTrigger>
                       <TooltipContent>Pinned note</TooltipContent>
                     </Tooltip>
@@ -125,11 +125,7 @@ export function NoteList({
                       onTogglePin(note.id);
                     }}
                   >
-                    {note.pinned ? (
-                      <Pinned className="h-4 w-4" />
-                    ) : (
-                      <Pin className="h-4 w-4" />
-                    )}
+                    <Pin className={cn("h-4 w-4", note.pinned && "fill-current text-primary")} />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>

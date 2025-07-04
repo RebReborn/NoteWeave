@@ -15,6 +15,7 @@ import {
   onSnapshot,
   CollectionReference,
   DocumentData,
+  getDoc,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { Note } from "@/lib/types";
@@ -27,12 +28,14 @@ const initialNotes: Omit<Note, "id" | "createdAt" | "updatedAt">[] = [
     content:
       "# Welcome to NoteWeave!\n\nThis is a sample note to help you get started. You can **edit** this note, create new ones, and organize your thoughts with tags.\n\n## Features\n* Markdown support\n* Live preview\n* Tagging system\n* AI-powered grammar check\n\nEnjoy weaving your thoughts!",
     tags: ["getting-started", "welcome"],
+    pinned: true,
   },
   {
     title: "Meeting Notes",
     content:
       "## Project Alpha - Kick-off\n\n**Attendees:**\n- Alice\n- Bob\n- Charlie\n\n**Action items:**\n1. Finalize the project scope by Friday.\n2. Bob to create the initial repository.",
     tags: ["work", "project-alpha"],
+    pinned: false,
   },
 ];
 
@@ -85,6 +88,7 @@ export function useNotes(user: User | null) {
               title: data.title,
               content: data.content,
               tags: data.tags,
+              pinned: data.pinned || false,
               createdAt:
                 (data.createdAt as Timestamp)?.toDate().toISOString() ||
                 new Date().toISOString(),
@@ -118,6 +122,7 @@ export function useNotes(user: User | null) {
       title: "Untitled Note",
       content: "",
       tags: [],
+      pinned: false,
     };
 
     try {
@@ -178,5 +183,26 @@ export function useNotes(user: User | null) {
     }
   };
 
-  return { notes, loading, addNote, updateNote, deleteNote };
+  const toggleNotePin = async (id: string) => {
+    if (!user) throw new Error("User not authenticated");
+    const noteDocRef = doc(db, "users", user.uid, "notes", id);
+    try {
+      const noteSnapshot = await getDoc(noteDocRef);
+      if (noteSnapshot.exists()) {
+        const currentNote = noteSnapshot.data();
+        await updateDoc(noteDocRef, {
+          pinned: !currentNote.pinned,
+        });
+      }
+    } catch (error) {
+      console.error("Error toggling pin status: ", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update pin status.",
+      });
+    }
+  };
+
+  return { notes, loading, addNote, updateNote, deleteNote, toggleNotePin };
 }

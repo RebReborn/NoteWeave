@@ -35,6 +35,7 @@ export default function Home() {
     addNote,
     updateNote,
     deleteNote,
+    toggleNotePin,
   } = useNotes(user);
 
   const [activeNoteId, setActiveNoteId] = React.useState<string | null>(null);
@@ -153,6 +154,7 @@ export default function Home() {
                 setIsMobileSidebarOpen(false); // Close sidebar on mobile after selection
               }}
               onDeleteNote={handleDeleteNote}
+              onTogglePin={toggleNotePin}
             />
           )}
         </SidebarContent>
