@@ -16,6 +16,8 @@ import {
   CollectionReference,
   DocumentData,
   getDoc,
+  writeBatch,
+  getDocs,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { Note } from "@/lib/types";
@@ -204,5 +206,31 @@ export function useNotes(user: User | null) {
     }
   };
 
-  return { notes, loading, addNote, updateNote, deleteNote, toggleNotePin };
+  const deleteAllNotes = async () => {
+    if (!notesCollectionRef) throw new Error("User not authenticated");
+    if (notes.length === 0) return;
+
+    try {
+      const batch = writeBatch(db);
+      const querySnapshot = await getDocs(notesCollectionRef);
+      querySnapshot.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+      await batch.commit();
+      toast({
+        title: "All Notes Deleted",
+        description: "Your notebook is now empty.",
+      });
+    } catch (error) {
+      console.error("Error deleting all notes: ", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete all notes.",
+      });
+      throw error;
+    }
+  };
+
+  return { notes, loading, addNote, updateNote, deleteNote, toggleNotePin, deleteAllNotes };
 }
