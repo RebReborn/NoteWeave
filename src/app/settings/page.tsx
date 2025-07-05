@@ -28,6 +28,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 
 export default function SettingsPage() {
@@ -122,107 +123,109 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="flex min-h-screen w-full flex-col">
-      <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-2 border-b bg-background/80 px-4 backdrop-blur-sm">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="icon" asChild>
-            <Link href="/">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <div className="flex items-center gap-2">
-            <Logo className="size-6 text-primary" />
-            <h1 className="font-headline text-lg font-bold">Settings</h1>
+    <TooltipProvider>
+      <div className="flex min-h-screen w-full flex-col">
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-2 border-b bg-background/80 px-4 backdrop-blur-sm">
+          <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon" asChild>
+              <Link href="/">
+                <ArrowLeft className="h-4 w-4" />
+              </Link>
+            </Button>
+            <div className="flex items-center gap-2">
+              <Logo className="size-6 text-primary" />
+              <h1 className="font-headline text-lg font-bold">Settings</h1>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <ThemeToggle />
-          <UserNav />
-        </div>
-      </header>
-      <main className="flex flex-1 justify-center p-4 md:p-10 bg-muted/20">
-        <div className="w-full max-w-2xl space-y-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Profile</CardTitle>
-              <CardDescription>
-                This is your account information.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex items-center gap-4">
-              <Avatar className="h-16 w-16">
-                <AvatarImage src={user.photoURL || ""} alt={user.displayName || ""} />
-                <AvatarFallback className="text-xl bg-primary text-primary-foreground">
-                  {getInitials(user.displayName, user.email)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="grid gap-1">
-                <div className="font-semibold text-lg">{user.displayName || 'No Name'}</div>
-                <div className="text-sm text-muted-foreground">{user.email}</div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>Data Management</CardTitle>
-              <CardDescription>
-                Export your notes for backup or analysis.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button onClick={handleExport} disabled={isExporting || notesLoading}>
-                {isExporting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isExporting ? 'Exporting...' : 'Export to Google Sheets'}
-              </Button>
-              <p className="mt-2 text-sm text-muted-foreground">
-                You will be prompted to sign in with your Google account to grant
-                permissions.
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card className="border-destructive">
-            <CardHeader>
-              <CardTitle className="text-destructive">Danger Zone</CardTitle>
-              <CardDescription>
-                These actions are irreversible. Please proceed with caution.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" disabled={isDeleting || notes.length === 0}>
-                    {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Delete All Notes
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This action cannot be undone. This will permanently delete all
-                      of your notes from our servers.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={handleDeleteAllNotes}
-                      className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                    >
-                      Continue
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Permanently delete all of your notes.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </main>
-    </div>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <UserNav />
+          </div>
+        </header>
+        <main className="flex flex-1 justify-center p-4 md:p-10 bg-muted/20">
+          <div className="w-full max-w-2xl space-y-8">
+            <Card>
+              <CardHeader>
+                <CardTitle>Profile</CardTitle>
+                <CardDescription>
+                  This is your account information.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex items-center gap-4">
+                <Avatar className="h-16 w-16">
+                  <AvatarImage src={user.photoURL || ""} alt={user.displayName || ""} />
+                  <AvatarFallback className="text-xl bg-primary text-primary-foreground">
+                    {getInitials(user.displayName, user.email)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="grid gap-1">
+                  <div className="font-semibold text-lg">{user.displayName || 'No Name'}</div>
+                  <div className="text-sm text-muted-foreground">{user.email}</div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Data Management</CardTitle>
+                <CardDescription>
+                  Export your notes for backup or analysis.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button onClick={handleExport} disabled={isExporting || notesLoading}>
+                  {isExporting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isExporting ? 'Exporting...' : 'Export to Google Sheets'}
+                </Button>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  You will be prompted to sign in with your Google account to grant
+                  permissions.
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card className="border-destructive">
+              <CardHeader>
+                <CardTitle className="text-destructive">Danger Zone</CardTitle>
+                <CardDescription>
+                  These actions are irreversible. Please proceed with caution.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" disabled={isDeleting || notes.length === 0}>
+                      {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Delete All Notes
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete all
+                        of your notes from our servers.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleDeleteAllNotes}
+                        className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                      >
+                        Continue
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Permanently delete all of your notes.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </main>
+      </div>
+    </TooltipProvider>
   );
 }
